@@ -1,0 +1,2 @@
+cd ~ && git clone https://github.com/viesturz/klipper-toolchanger.git
+ln -sfn ~/klipper-toolchanger/klipper/extras/tools_calibrate.py ~/klipper/klippy/extras/
