@@ -55,12 +55,6 @@ class DockLocateCalibrate:
         # Negative value = move X negative
         self.calibrate_move_x = config.getfloat('calibrate_move_x')
 
-        # Optional Y movement after the X movement, before homing.
-        # Used to pull the toolhead completely out of the dock, so a
-        # Z hop done by the homing_override cannot hit the dock.
-        # Positive = Y positive, negative = Y negative, 0 = no move.
-        self.calibrate_move_y = config.getfloat('calibrate_move_y', 0.)
-
         # ----------------------------------------------------
         # Klipper objects
         # ----------------------------------------------------
@@ -83,26 +77,6 @@ class DockLocateCalibrate:
 
     def get_status(self, eventtime):
         return {}
-
-    # --------------------------------------------------------
-    # Center of the X/Y travel range (temporary fake position)
-    # --------------------------------------------------------
-
-    def get_xy_center(self):
-
-        settings = self.printer.lookup_object(
-            'configfile'
-        ).get_status(None)['settings']
-
-        center = []
-
-        for axis in ('stepper_x', 'stepper_y'):
-            ax = settings.get(axis, {})
-            pmin = float(ax.get('position_min', 0.))
-            pmax = float(ax.get('position_max'))
-            center.append((pmin + pmax) / 2.0)
-
-        return center
 
     # --------------------------------------------------------
     # Get MCU stepper positions
@@ -163,14 +137,8 @@ class DockLocateCalibrate:
         # Establish temporary kinematic position
         # ----------------------------------------------------
 
-        # The fake position is set to the middle of the X/Y travel
-        # range, so the calibration moves are never "out of range".
-        # Z is left unchanged. Only MCU step counts are used for the
-        # result, so the fake position does not affect it.
-        cx, cy = self.get_xy_center()
-
         self.gcode.run_script_from_command(
-            'SET_KINEMATIC_POSITION X=%.3f Y=%.3f' % (cx, cy)
+            'SET_KINEMATIC_POSITION'
         )
 
         # ----------------------------------------------------
@@ -193,11 +161,6 @@ class DockLocateCalibrate:
         self.gcode.run_script_from_command(
             'G1 X%.3f F3000' % self.calibrate_move_x
         )
-
-        if self.calibrate_move_y != 0.:
-            self.gcode.run_script_from_command(
-                'G1 Y%.3f F3000' % self.calibrate_move_y
-            )
 
         self.gcode.run_script_from_command(
             'G90'
@@ -231,18 +194,7 @@ class DockLocateCalibrate:
         # Record final MCU position
         # ----------------------------------------------------
 
-        # Wait until all moves (incl. homing backoff of the
-        # homing_override) are done, so MCU and toolhead positions match.
-        self.gcode.run_script_from_command('M400')
-
         final_res = self.get_mcu_position()
-
-        # Real X/Y position after homing. Equals the endstop position,
-        # or endstop -/+ backoff if the homing_override moves away
-        # from the endstop after homing (e.g. G1 X-40 / G1 Y-40).
-        final_pos = self.printer.lookup_object('toolhead').get_position()
-        home_x = final_pos[0]
-        home_y = final_pos[1]
 
         logging.info(
             "Lineux Dock Calibration - "
@@ -287,8 +239,8 @@ class DockLocateCalibrate:
         # The calibration movement is NOT subtracted here.
         # ----------------------------------------------------
 
-        dock_x = home_x + raw_dock_x
-        dock_y = home_y + raw_dock_y
+        dock_x = self.x_endstop + raw_dock_x
+        dock_y = self.y_endstop + raw_dock_y
 
         # ----------------------------------------------------
         # Report results
@@ -301,9 +253,9 @@ class DockLocateCalibrate:
             "Final MCU:   X=%s Y=%s\n"
             "MCU Delta:   X=%s Y=%s\n"
             "XY Resolution: %.7f mm/step\n"
-            "Position after homing: X=%.2f Y=%.2f mm\n"
-            "(configured endstops: X=%.2f Y=%.2f mm)\n"
-            "Calibration Move: X=%.2f Y=%.2f mm\n"
+            "X Endstop: %.2f mm\n"
+            "Y Endstop: %.2f mm\n"
+            "Calibration Move: %.2f mm\n"
             "Raw Offset: X=%.2f Y=%.2f mm\n"
             "Calculated Dock Location:\n"
             "X: %.2f mm\n"
@@ -316,12 +268,9 @@ class DockLocateCalibrate:
                 dx,
                 dy,
                 self.xy_resolution,
-                home_x,
-                home_y,
                 self.x_endstop,
                 self.y_endstop,
                 self.calibrate_move_x,
-                self.calibrate_move_y,
                 raw_dock_x,
                 raw_dock_y,
                 dock_x,

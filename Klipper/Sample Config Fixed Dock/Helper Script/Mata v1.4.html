@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,600,800,900">
+    <title>Mata - Calibration Tool</title>
+    <style>
+        /* --- Global & Typography --- */
+        body { font-family: "Montserrat", sans-serif; text-align: center; background-color: #f1f5f9; color: #334155; margin: 0; padding: 30px 10px; }
+        h1 { font-weight: 900; margin-top: 0; margin-bottom: 5px; color: #0f172a; font-size: 48px; letter-spacing: -1px; text-transform: uppercase; }
+        h3 { margin-top: 0px; color: #64748b; margin-bottom: 35px; font-weight: 600; font-size: 16px; letter-spacing: 0.5px; }
+       
+        button { font-family: "Montserrat", sans-serif; text-align: center; cursor: pointer; transition: all 0.2s ease; border: none; border-radius: 6px; }
+        button:disabled { background: #e2e8f0 !important; color: #94a3b8 !important; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+        button:active:not(:disabled) { transform: scale(0.96); }
+
+        /* --- Panels --- */
+        .ui-panel { background: white; padding: 25px; display: inline-block; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 25px; vertical-align: top; width: 780px; text-align: left; box-sizing: border-box; }
+        .ui-panel-title { font-weight: 800; color: #0f172a; margin-top: 0; margin-bottom: 15px; font-size: 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;}
+       
+        /* Setup Panel */
+        .setup-panel { background: #1e293b; color: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 25px; display: inline-block; box-shadow: 0 10px 20px rgba(15, 23, 42, 0.2); width: 780px; box-sizing: border-box; }
+        .setup-panel label { margin-left: 10px; font-size: 13px; font-weight: 600; color: #94a3b8; }
+        .setup-panel input[type="text"], .setup-panel select { padding: 8px 12px; font-size: 14px; border-radius: 6px; border: 1px solid #334155; text-align: center; margin: 5px; background: #0f172a; color: white; outline: none; transition: border 0.2s;}
+        .setup-panel input[type="text"]:focus, .setup-panel select:focus { border-color: #3b82f6; }
+        .setup-panel input[type="text"] { width: 130px; }
+        .setup-panel select { width: 140px; cursor: pointer; }
+        .setup-row { margin-bottom: 5px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; }
+       
+        /* Video Container */
+        #videoContainer { position: relative; margin: 0 auto 20px auto; width: 640px; height: 480px; border: 6px solid #1e293b; overflow: hidden; background-color: #000000; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+        .stream-element { width: 100%; height: 100%; object-fit: contain; display: block; transform-origin: center; transition: transform 0.1s ease-out; }
+       
+        /* --- Crosshair Overlay & Styles --- */
+        #crosshairOverlay { position: absolute; top: 50%; left: 50%; width: 140px; height: 140px; transform: translate(-50%, -50%); pointer-events: none; z-index: 100; transition: opacity 0.1s ease; }
+       
+        /* Reset all crosshair elements to be hidden by default */
+        .cross-part { position: absolute; box-sizing: border-box; display: none; }
+       
+        /* 1. Classic (Red) */
+        .style-classic .c-circle1 { width: 100%; height: 100%; border: 2px solid #ef4444; border-radius: 50%; box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); top:0; left:0; display: block; }
+        .style-classic .c-line-h { top: 50%; left: -20px; right: -20px; height: 2px; background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); margin-top:-1px; display: block; }
+        .style-classic .c-line-v { left: 50%; top: -20px; bottom: -20px; width: 2px; background: #ef4444; box-shadow: 0 0 5px rgba(239, 68, 68, 0.5); margin-left:-1px; display: block; }
+
+        /* 2. Precision (Green) */
+        .style-precision .c-line-h { top: 50%; left: -100px; right: -100px; height: 1px; background: #10b981; margin-top:0; display: block; }
+        .style-precision .c-line-v { left: 50%; top: -100px; bottom: -100px; width: 1px; background: #10b981; margin-left:0; display: block; }
+        .style-precision .c-dot { width: 4px; height: 4px; background: #10b981; border-radius: 50%; top: 50%; left: 50%; margin-top:-2px; margin-left:-2px; display: block; }
+
+        /* 3. Simple (White) */
+        .style-simple .c-line-h { top: 50%; left: -40px; right: -40px; height: 2px; background: #fff; box-shadow: 0 0 3px #000; margin-top:-1px; display: block; }
+        .style-simple .c-line-v { left: 50%; top: -40px; bottom: -40px; width: 2px; background: #fff; box-shadow: 0 0 3px #000; margin-left:-1px; display: block; }
+
+        /* 4. Sniper (Cyan) */
+        .style-sniper .c-circle1 { width: 70%; height: 70%; border: 2px dashed #0ea5e9; border-radius: 50%; top: 15%; left: 15%; display: block; }
+        .style-sniper .c-line-h { top: 50%; left: -15px; right: -15px; height: 1px; background: #0ea5e9; margin-top:0; display: block; }
+        .style-sniper .c-line-v { left: 50%; top: -15px; bottom: -15px; width: 1px; background: #0ea5e9; margin-left:0; display: block; }
+        .style-sniper .c-dot { width: 6px; height: 6px; border: 1px solid #0ea5e9; border-radius: 50%; top: 50%; left: 50%; margin-top:-3px; margin-left:-3px; display: block; background: transparent; }
+
+        /* 5. Bullseye (Amber) */
+        .style-bullseye .c-circle1 { width: 100%; height: 100%; border: 2px solid #f59e0b; border-radius: 50%; top:0; left:0; display: block; }
+        .style-bullseye .c-circle2 { width: 40%; height: 40%; border: 2px solid #f59e0b; border-radius: 50%; top: 30%; left: 30%; display: block; }
+        .style-bullseye .c-line-h { top: 50%; left: -15px; right: -15px; height: 1px; background: #f59e0b; margin-top:0; display: block; }
+        .style-bullseye .c-line-v { left: 50%; top: -15px; bottom: -15px; width: 1px; background: #f59e0b; margin-left:0; display: block; }
+
+        /* 6. Crosshair Micro (Magenta) */
+        .style-micro .c-line-h-left { top: 50%; left: 0; width: 45px; height: 2px; background: #d946ef; margin-top:-1px; display: block; }
+        .style-micro .c-line-h-right { top: 50%; right: 0; width: 45px; height: 2px; background: #d946ef; margin-top:-1px; display: block; }
+        .style-micro .c-line-v-top { left: 50%; top: 0; height: 45px; width: 2px; background: #d946ef; margin-left:-1px; display: block; }
+        .style-micro .c-line-v-bottom { left: 50%; bottom: 0; height: 45px; width: 2px; background: #d946ef; margin-left:-1px; display: block; }
+        .style-micro .c-circle2 { width: 20px; height: 20px; border: 1px dotted #d946ef; border-radius: 50%; top: calc(50% - 10px); left: calc(50% - 10px); display: block; }
+
+        /* 7. Grid Align (Yellow) */
+        .style-grid .c-line-h { top: 50%; left: -60px; right: -60px; height: 1px; background: #eab308; margin-top:0; display: block; }
+        .style-grid .c-line-v { left: 50%; top: -60px; bottom: -60px; width: 1px; background: #eab308; margin-left:0; display: block; }
+        .style-grid .c-box { width: 50px; height: 50px; border: 1px solid #eab308; top: calc(50% - 25px); left: calc(50% - 25px); display: block; }
+        .style-grid .c-dot { width: 4px; height: 4px; background: #eab308; border-radius: 50%; top: 50%; left: 50%; margin-top:-2px; margin-left:-2px; display: block; }
+
+        /* 8. Dot Matrix (Lime) */
+        .style-dotmatrix .c-dot { width: 6px; height: 6px; background: #84cc16; border-radius: 50%; top: 50%; left: 50%; margin-top:-3px; margin-left:-3px; box-shadow: 0 0 6px #84cc16; display: block; }
+        .style-dotmatrix .c-circle2 { width: 30px; height: 30px; border: 1px dashed #84cc16; border-radius: 50%; top: calc(50% - 15px); left: calc(50% - 15px); display: block; }
+
+        /* General Buttons */
+        .btn-primary { background: #3b82f6; color: white; font-weight: 600; padding: 10px 18px; }
+        .btn-primary:hover { background: #2563eb; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3); }
+        .btn-secondary { background: #f1f5f9; color: #475569; padding: 10px 18px; font-weight: 600; border: 1px solid #e2e8f0; }
+        .btn-secondary:hover { background: #e2e8f0; }
+        .btn-success { background: #10b981; color: white; padding: 10px 18px; font-weight: 600; }
+        .btn-success:hover { background: #059669; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
+
+        /* Tables & Inputs */
+        input[type="number"] { width: 75px; padding: 8px; margin: 2px 4px; text-align: center; border: 1px solid #cbd5e1; border-radius: 6px; font-family: monospace; font-size: 14px; outline: none; transition: border 0.2s;}
+        input[type="number"]:focus { border-color: #3b82f6; }
+        .macro-inputs .tool-row { margin-bottom: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; padding: 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #f1f5f9; }
+
+        .results-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; font-size: 14px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+        .results-table th, .results-table td { padding: 10px; text-align: center; vertical-align: middle; border-bottom: 1px solid #e2e8f0; }
+        .results-table th { background-color: #f8fafc; font-weight: 700; color: #475569; }
+        .results-table tr:last-child td { border-bottom: none; }
+        .results-table td.result-val { font-weight: 700; color: #3b82f6; font-family: monospace; font-size: 15px; }
+       
+        .btn-copy { background: #3b82f6; color: white; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 12px; margin: 0; }
+        .btn-copy:hover { background: #2563eb; }
+
+        /* UI History Panel */
+        .history-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; margin-top: 15px; border-radius: 8px; text-align: left; }
+        .history-card .timestamp { font-size: 12px; color: #64748b; font-weight: 700; margin-bottom: 10px; display: block; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+        .history-table { width: 100%; border-collapse: collapse; font-size: 13px; font-family: monospace;}
+        .history-table th, .history-table td { padding: 4px; text-align: center; }
+        .history-table th { color: #94a3b8; font-family: "Montserrat", sans-serif; font-size: 11px; text-transform: uppercase; }
+       
+        /* Step Box */
+        #textBox { font-size: 15px; border: 2px dashed #cbd5e1; min-height: 80px; margin: 0 0 20px 0; padding: 20px; background: #f8fafc; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #334155; line-height: 1.5; text-align: left; }
+       
+        /* Toolbar */
+        .video-toolbar { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 30px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); width: 780px; margin-left: auto; margin-right: auto; box-sizing: border-box; flex-wrap: wrap;}
+        .toolbar-group { display: flex; align-items: center; gap: 8px; }
+        .toolbar-divider { width: 2px; height: 30px; background: #e2e8f0; }
+        .toolbar-label { font-weight: 700; color: #475569; font-size: 12px; text-transform: uppercase; }
+        .toolbar-select { padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 13px; outline: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <h1>Mata</h1>
+    <h3>Nozzle Offset Calibration Tool</h3>
+   
+    <!-- Setup Panel -->
+    <div class="setup-panel">
+        <div class="setup-row">
+            <label for="connType">Connection:</label>
+            <select id="connType" onchange="toggleConnectionType()">
+                <option value="network">Network (IP)</option>
+                <option value="local">Local PC (USB)</option>
+            </select>
+           
+            <label for="toolCount">Tools:</label>
+            <select id="toolCount" onchange="buildInterface()">
+                <option value="2">2 Tools (T0-T1)</option>
+                <option value="3">3 Tools (T0-T2)</option>
+                <option value="4">4 Tools (T0-T3)</option>
+                <option value="5">5 Tools (T0-T4)</option>
+                <option value="6">6 Tools (T0-T5)</option>
+                <option value="7">7 Tools (T0-T6)</option>
+                <option value="8" selected>8 Tools (T0-T7)</option>
+                <option value="9">9 Tools (T0-T8)</option>
+                <option value="10">10 Tools (T0-T9)</option>
+                <option value="11">11 Tools (T0-T10)</option>
+                <option value="12">12 Tools (T0-T11)</option>
+                <option value="13">13 Tools (T0-T12)</option>
+                <option value="14">14 Tools (T0-T13)</option>
+                <option value="15">15 Tools (T0-T14)</option>
+                <option value="16">16 Tools (T0-T15)</option>
+                <option value="17">17 Tools (T0-T16)</option>
+                <option value="18">18 Tools (T0-T17)</option>
+                <option value="19">19 Tools (T0-T18)</option>
+                <option value="20">20 Tools (T0-T19)</option>
+            </select>
+        </div>
+
+        <div id="networkSetup" class="setup-row" style="margin-top: 10px;">
+            <label for="ipAddress">Cam IP:</label>
+            <input type="text" id="ipAddress" placeholder="192.168.1.50">
+           
+            <label for="camSelect">Source:</label>
+            <select id="camSelect" onchange="updateNetworkCamera()">
+                <option value="1">Cam 1</option>
+                <option value="2">Cam 2</option>
+                <option value="3">Cam 3</option>
+                <option value="4">Cam 4</option>
+            </select>
+            <button class="btn-primary" onClick="updateNetworkCamera()" style="margin-left: 10px;">Connect Cam</button>
+        </div>
+
+        <div id="localSetup" class="setup-row" style="display: none; margin-top: 10px;">
+            <label for="localCamSelect">USB Camera:</label>
+            <select id="localCamSelect" onchange="startLocalCamera()"></select>
+            <button onClick="loadLocalCameras()" class="btn-primary" style="margin-left: 10px;">Refresh Cams</button>
+        </div>
+
+        <div id="camStatus" style="color: #94a3b8; margin-top: 10px; font-weight: 600; font-size: 14px;">Waiting for connection...</div>
+    </div>
+
+    <!-- Video Area -->
+    <div id="videoContainer">
+        <img id="videoStreamImg" class="stream-element" crossorigin="anonymous">
+        <video id="videoStreamVid" class="stream-element" autoplay playsinline style="display: none;"></video>
+       
+        <div id="crosshairOverlay" class="style-classic">
+            <!-- Removed the inline style="display:none;" so CSS can control visibility -->
+            <div class="cross-part c-circle1"></div>
+            <div class="cross-part c-circle2"></div>
+            <div class="cross-part c-box"></div>
+            <div class="cross-part c-line-h"></div>
+            <div class="cross-part c-line-v"></div>
+            <div class="cross-part c-line-h-left"></div>
+            <div class="cross-part c-line-h-right"></div>
+            <div class="cross-part c-line-v-top"></div>
+            <div class="cross-part c-line-v-bottom"></div>
+            <div class="cross-part c-dot"></div>
+        </div>
+    </div>
+
+    <!-- Video Toolbar -->
+    <div class="video-toolbar">
+        <div class="toolbar-group">
+            <button class="btn-secondary" style="padding: 6px 10px; font-size:12px;" onClick="zoomIn()">Zoom +</button>
+            <button class="btn-secondary" style="padding: 6px 10px; font-size:12px;" onClick="zoomOut()">Zoom -</button>
+        </div>
+       
+        <div class="toolbar-divider"></div>
+       
+        <div class="toolbar-group">
+            <label class="toolbar-label">Brightness:</label>
+            <input oninput="exposureHandler()" id="exposureSlider" type="range" min="0" max="20" value="10" style="width: 70px;">
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <div class="toolbar-group">
+            <label class="toolbar-label">Opacity:</label>
+            <input oninput="opacityHandler()" id="opacitySlider" type="range" min="0" max="100" value="100" style="width: 70px;">
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <div class="toolbar-group">
+            <label class="toolbar-label">Crosshair:</label>
+            <select id="crosshairSelect" class="toolbar-select" onchange="changeCrosshair()">
+                <option value="style-classic">Classic (Red)</option>
+                <option value="style-precision">Precision (Green)</option>
+                <option value="style-simple">Simple (White)</option>
+                <option value="style-sniper">Sniper (Cyan)</option>
+                <option value="style-bullseye">Bullseye (Amber)</option>
+                <option value="style-micro">Micro Cross (Magenta)</option>
+                <option value="style-grid">Grid Align (Yellow)</option>
+                <option value="style-dotmatrix">Dot Matrix (Lime)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Main Calibration Panel -->
+    <div class="ui-panel">
+        <div class="ui-panel-title">Calibration Wizard</div>
+       
+        <p id="textBox">Ready to start. Tip: Open your Klipper Dashboard on the other half of your screen.</p>
+
+        <div style="margin-bottom: 25px; text-align: center;">
+            <button id="startButton" class="btn-primary" onClick="startHandler()">Start Step-by-Step Guide</button>
+            <button id="backButton" class="btn-secondary" style="margin: 0 10px;" onClick="backHandler()" disabled>Back</button>
+            <button id="resetButton" class="btn-secondary" onClick="resetHandler()" disabled>Reset Guide</button>
+        </div>
+
+        <div class="ui-panel-title" style="font-size: 14px; margin-bottom: 10px; border:none;">Absolute Positions</div>
+       
+        <form id="calcForm" class="macro-inputs"></form>
+
+        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #e2e8f0;">
+       
+        <div class="ui-panel-title" style="font-size: 16px; border:none;">Calculated Offsets (Tx - T0)</div>
+        <table class="results-table">
+            <thead>
+                <tr>
+                    <th>Tool</th>
+                    <th>X Offset</th>
+                    <th>Y Offset</th>
+                    <th>Z Offset</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="resultsTableBody"></tbody>
+        </table>
+       
+        <!-- Save action only -->
+        <div style="margin-top: 20px;">
+            <button class="btn-success" style="width: 100%; padding: 12px; font-size: 15px;" onClick="saveToHistory()">Save to History</button>
+        </div>
+    </div>
+
+    <!-- History Panel -->
+    <div class="ui-panel" style="width: 380px; margin-left: 20px;">
+        <div class="ui-panel-title" style="display: flex; justify-content: space-between; align-items: center;">
+            Saved History
+            <button class="btn-secondary" style="padding: 4px 10px; font-size: 12px; color: #ef4444;" onClick="clearHistory()">Clear</button>
+        </div>
+        <div id="historyList">
+            <p style="color: #94a3b8; font-size: 14px; text-align: center; margin-top: 30px;">No saved offsets yet.</p>
+        </div>
+    </div>
+
+    <script>
+        let localStreamRef = null;
+
+        function changeCrosshair() {
+            var style = document.getElementById("crosshairSelect").value;
+            document.getElementById("crosshairOverlay").className = style;
+            localStorage.setItem("intaiCrosshair", style);
+        }
+
+        function opacityHandler() {
+            var val = document.getElementById("opacitySlider").value;
+            document.getElementById("crosshairOverlay").style.opacity = val / 100;
+            localStorage.setItem("intaiCrosshairOpacity", val);
+        }
+
+        function buildInterface() {
+            var count = parseInt(document.getElementById("toolCount").value);
+            localStorage.setItem("klipperToolCount", count);
+
+            var tempVals = {};
+            for(var i=0; i<20; i++) {
+                var elX = document.getElementById("x"+i);
+                if(elX) tempVals[i] = { x: elX.value, y: document.getElementById("y"+i).value, z: document.getElementById("z"+i).value };
+            }
+
+            var formHtml = "";
+            for(var i=0; i<count; i++) {
+                var vx = tempVals[i] ? tempVals[i].x : "";
+                var vy = tempVals[i] ? tempVals[i].y : "";
+                var vz = tempVals[i] ? tempVals[i].z : "";
+               
+                formHtml += `<div class="tool-row">
+                    <span style="width: 50px; display:inline-block; color:#475569; font-size:15px;">T${i}:</span>
+                    <span style="color:#94a3b8; font-size:12px;">X</span> <input type="number" id="x${i}" step="0.01" value="${vx}" oninput="calculateOffsets()">
+                    <span style="color:#94a3b8; font-size:12px;">Y</span> <input type="number" id="y${i}" step="0.01" value="${vy}" oninput="calculateOffsets()">
+                    <span style="color:#94a3b8; font-size:12px;">Z</span> <input type="number" id="z${i}" step="0.01" value="${vz}" oninput="calculateOffsets()">
+                    </div>`;
+            }
+            document.getElementById("calcForm").innerHTML = formHtml;
+
+            var tableHtml = "";
+            for(var i=1; i<count; i++) {
+                tableHtml += `
+                    <tr>
+                        <td style="color:#475569; font-weight:bold;">T${i}</td>
+                        <td class="result-val" id="resX${i}">--</td>
+                        <td class="result-val" id="resY${i}">--</td>
+                        <td class="result-val" id="resZ${i}">--</td>
+                        <td><button class="btn-copy" onclick="copyToolOffset(${i}, this)">Copy T${i}</button></td>
+                    </tr>`;
+            }
+            document.getElementById("resultsTableBody").innerHTML = tableHtml;
+
+            calculateOffsets();
+        }
+
+        function calculateOffsets() {
+            var count = parseInt(document.getElementById("toolCount").value);
+            var x0 = document.getElementById("x0").value;
+            var y0 = document.getElementById("y0").value;
+            var z0 = document.getElementById("z0").value;
+
+            for (var i = 1; i < count; i++) {
+                var xi = document.getElementById("x" + i).value;
+                var yi = document.getElementById("y" + i).value;
+                var zi = document.getElementById("z" + i).value;
+
+                document.getElementById("resX" + i).innerText = (x0 !== "" && xi !== "") ? (parseFloat(xi) - parseFloat(x0)).toFixed(2) : "--";
+                document.getElementById("resY" + i).innerText = (y0 !== "" && yi !== "") ? (parseFloat(yi) - parseFloat(y0)).toFixed(2) : "--";
+                document.getElementById("resZ" + i).innerText = (z0 !== "" && zi !== "") ? (parseFloat(zi) - parseFloat(z0)).toFixed(2) : "--";
+            }
+        }
+
+        function copyToolOffset(toolId, btnElement) {
+            var rx = document.getElementById("resX" + toolId).innerText;
+            var ry = document.getElementById("resY" + toolId).innerText;
+            var rz = document.getElementById("resZ" + toolId).innerText;
+
+            if (rx === "--" && ry === "--" && rz === "--") {
+                alert("No data to copy for T" + toolId + "!");
+                return;
+            }
+
+            var output = `variable_xoffset: ${rx !== "--" ? rx : "0.00"}\n`;
+            output += `variable_yoffset: ${ry !== "--" ? ry : "0.00"}\n`;
+            output += `variable_zoffset: ${rz !== "--" ? rz : "0.00"}`;
+
+            navigator.clipboard.writeText(output).then(function() {
+                var originalText = btnElement.innerText;
+                var originalBg = btnElement.style.background;
+                btnElement.innerText = "Copied!";
+                btnElement.style.background = "#10b981";
+                setTimeout(function() { btnElement.innerText = originalText; btnElement.style.background = originalBg; }, 2000);
+            });
+        }
+
+        function toggleConnectionType() {
+            var type = document.getElementById("connType").value;
+            localStorage.setItem("klipperConnType", type);
+           
+            if (type === "network") {
+                document.getElementById("networkSetup").style.display = "flex";
+                document.getElementById("localSetup").style.display = "none";
+                document.getElementById("videoStreamVid").style.display = "none";
+                document.getElementById("videoStreamImg").style.display = "block";
+               
+                if(localStreamRef) { localStreamRef.getTracks().forEach(track => track.stop()); localStreamRef = null; }
+                updateNetworkCamera();
+            } else {
+                document.getElementById("networkSetup").style.display = "none";
+                document.getElementById("localSetup").style.display = "flex";
+                document.getElementById("videoStreamImg").style.display = "none";
+                document.getElementById("videoStreamVid").style.display = "block";
+               
+                document.getElementById("videoStreamImg").src = "";
+                loadLocalCameras();
+            }
+            resetZoomAndExposure();
+        }
+
+        function updateNetworkCamera() {
+            var ip = document.getElementById("ipAddress").value.trim().replace(/^https?:\/\//, '').split('/')[0];
+            document.getElementById("ipAddress").value = ip;
+            if(ip === "") return;
+
+            var camId = parseInt(document.getElementById("camSelect").value);
+            localStorage.setItem('klipperCamIP', ip);
+            localStorage.setItem('klipperCamIndex', camId);
+           
+            var proxyPath = (camId === 1) ? "/webcam/" : "/webcam" + camId + "/";
+            var directPort = 8080 + (camId - 1);
+            var img = document.getElementById("videoStreamImg");
+           
+            img.onload = function() { document.getElementById("camStatus").innerHTML = "<span style='color:#10b981'>Connected!</span>"; };
+            img.onerror = function() { img.onerror = null; img.src = "http://" + ip + ":" + directPort + "/?action=stream"; };
+            img.src = "http://" + ip + proxyPath + "?action=stream";
+        }
+
+        async function loadLocalCameras() {
+            try {
+                await navigator.mediaDevices.getUserMedia({video: true});
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                const camSelect = document.getElementById("localCamSelect");
+                camSelect.innerHTML = "";
+               
+                videoDevices.forEach((device, index) => {
+                    let option = document.createElement("option");
+                    option.value = device.deviceId;
+                    option.text = device.label || `Camera ${index + 1}`;
+                    camSelect.appendChild(option);
+                });
+                startLocalCamera();
+            } catch (err) { console.error("Local camera error", err); }
+        }
+
+        async function startLocalCamera() {
+            var deviceId = document.getElementById("localCamSelect").value;
+            var videoEl = document.getElementById("videoStreamVid");
+            if (localStreamRef) localStreamRef.getTracks().forEach(track => track.stop());
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+                localStreamRef = stream;
+                videoEl.srcObject = stream;
+                document.getElementById("camStatus").innerHTML = "<span style='color:#10b981'>USB Camera connected!</span>";
+            } catch(e) { console.error(e); }
+        }
+
+        window.onload = function() {
+            var savedConnType = localStorage.getItem('klipperConnType');
+            var savedIP = localStorage.getItem('klipperCamIP');
+            var savedCam = localStorage.getItem('klipperCamIndex');
+            var savedTools = localStorage.getItem('klipperToolCount');
+            var savedCrosshair = localStorage.getItem('intaiCrosshair');
+            var savedOpacity = localStorage.getItem('intaiCrosshairOpacity');
+           
+            if (savedConnType) document.getElementById("connType").value = savedConnType;
+            if (savedCam) document.getElementById("camSelect").value = savedCam;
+            if (savedTools) document.getElementById("toolCount").value = savedTools;
+            if (savedIP) document.getElementById("ipAddress").value = savedIP;
+           
+            if (savedCrosshair) {
+                document.getElementById("crosshairSelect").value = savedCrosshair;
+                changeCrosshair();
+            }
+            if (savedOpacity) {
+                document.getElementById("opacitySlider").value = savedOpacity;
+                opacityHandler();
+            }
+           
+            buildInterface();
+            toggleConnectionType();
+            renderHistory();
+        };
+
+        var currentZoomValue = 1;
+        function resetZoomAndExposure() { currentZoomValue = 1; applyStreamStyle(); }
+        function zoomIn() { if (currentZoomValue < 5) { currentZoomValue += 0.5; applyStreamStyle(); } }
+        function zoomOut() { if (currentZoomValue > 1) { currentZoomValue -= 0.5; applyStreamStyle(); } }
+        function exposureHandler() { applyStreamStyle(); }
+
+        function applyStreamStyle() {
+            var filterVal = "brightness(" + (document.getElementById("exposureSlider").value / 10.0) + ")";
+            var transformVal = "scale(" + currentZoomValue + ")";
+            var elements = document.querySelectorAll('.stream-element');
+            elements.forEach(el => { el.style.transform = transformVal; el.style.filter = filterVal; });
+        }
+
+        function saveToHistory() {
+            var count = parseInt(document.getElementById("toolCount").value);
+            var entry = { timestamp: new Date().toLocaleString(), tools: {} };
+            var hasData = false;
+
+            for(var i = 1; i < count; i++) {
+                var rx = document.getElementById("resX" + i).innerText;
+                var ry = document.getElementById("resY" + i).innerText;
+                var rz = document.getElementById("resZ" + i).innerText;
+
+                if(rx !== "--" || ry !== "--" || rz !== "--") {
+                    entry.tools["T" + i] = { x: rx, y: ry, z: rz };
+                    hasData = true;
+                }
+            }
+
+            if(!hasData) { alert("No calculated offsets to save."); return; }
+            var history = JSON.parse(localStorage.getItem("klipperCalHistory") || "[]");
+            history.unshift(entry);
+            if(history.length > 10) history.pop();
+            localStorage.setItem("klipperCalHistory", JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            var history = JSON.parse(localStorage.getItem("klipperCalHistory") || "[]");
+            var container = document.getElementById("historyList");
+            if(history.length === 0) { container.innerHTML = "<p style='color:#94a3b8; font-size: 14px; text-align:center; margin-top:30px;'>No saved offsets yet.</p>"; return; }
+           
+            var html = "";
+            history.forEach(function(item) {
+                html += "<div class='history-card'><span class='timestamp'>" + item.timestamp + "</span>";
+                html += "<table class='history-table'><tr><th>Tool</th><th>X</th><th>Y</th><th>Z</th></tr>";
+                for(var t in item.tools) { html += "<tr><td>" + t + "</td><td>" + item.tools[t].x + "</td><td>" + item.tools[t].y + "</td><td>" + item.tools[t].z + "</td></tr>"; }
+                html += "</table></div>";
+            });
+            container.innerHTML = html;
+        }
+
+        function clearHistory() { if(confirm("Clear history?")) { localStorage.removeItem("klipperCalHistory"); renderHistory(); } }
+
+        var currentState = 0;
+
+        function startHandler() {
+            if (currentState === 0) { document.getElementById("backButton").disabled = false; document.getElementById("resetButton").disabled = false; document.getElementById("startButton").innerHTML = "Next Step"; }
+            currentState++; stateHandler();
+        }
+
+        function backHandler() { if(currentState > 0) { currentState--; stateHandler(); } }
+        function resetHandler() { location.reload(); }
+
+        function stateHandler() {
+            var box = document.getElementById("textBox");
+           
+            var steps = [
+                "Ready to start. Tip: Open your Klipper Dashboard on the other half of your screen.",
+                "<strong>Step 1.</strong> Home yr printer and do the neccesary z tilt adjust or quad gantry level.",
+                "<strong>Step 2.</strong> Place Intai on the bed. Increase the Z height to slightly above the lens of the camera.",
+                "<strong>Step 3.</strong> Using T0, move the tool manually using the console until the nozzle orifice is in the center of the crosshair.",
+                "<strong>Step 4.</strong> Record the X and Y position for T0 manually. You can use the 'Get Pos' button if you are connected via ip.",
+                "<strong>Step 5.</strong> Dropoff T0 and pickup the next tool now.",
+                "<strong>Step 6.</strong> Move T1 manually using the console until the nozzle orifice is in the center of the crosshair.",
+                "<strong>Step 7.</strong> Record the X and Y position for T1 manually. You can use the 'Get Pos' button if you are connected via ip.",
+                "<strong>Step 8.</strong> Repeat the steps for all the remaining tools (if any).",
+                "<strong>Step 9.</strong> You can use the copy button in the Calculated Offsets Section to manually paste them in the tools config file.",
+                "<strong>Step 10.</strong> You may save and restart your klipper and close Mata. Proceed to do the Intai Z calibration on your console for the nozzle Z offsets next."
+            ];
+           
+            if(currentState >= 10) {
+                box.innerHTML = steps[10];
+                document.getElementById("startButton").disabled = true;
+            } else {
+                box.innerHTML = steps[currentState];
+            }
+        }
+    </script>
+</body>
+</html>
